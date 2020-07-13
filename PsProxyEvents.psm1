@@ -5,7 +5,8 @@ function Register-ProxyCommand {
 	)
 
 	$Command = Get-Command -Name $CommandName;
-	$CommandDefinitionName = if ($Command.ModuleName) {
+	$CommandType = $Command.CommandType;
+	$CommandName = if ($Command.ModuleName) {
 		"$($Command.ModuleName)\$($Command.Name)";
 	} else {
 		$Command.Name;
@@ -28,7 +29,7 @@ $OutBuffer = $null
 		@"
 dynamic {
 		try {
-			`$TargetCmd = `$ExecutionContext.InvokeCommand.GetCommand('$CommandDefinitionName', [System.Management.Automation.CommandTypes]::$($Command.CommandType), `$PSBoundParameters)
+			`$TargetCmd = `$ExecutionContext.InvokeCommand.GetCommand('$CommandName', [System.Management.Automation.CommandTypes]::$CommandType, `$PSBoundParameters)
 			`$DynamicParams = @(`$TargetCmd.Parameters.GetEnumerator() | Microsoft.PowerShell.Core\Where-Object { `$_.Value.IsDynamic })
 			if (`$DynamicParams.Length -gt 0) {
 				`$ParamDictionary = [Management.Automation.RuntimeDefinedParameterDictionary]::new()
@@ -59,7 +60,7 @@ function Invoke-Proxy$($Command -replace '-', '') {
 	begin {
 		try {
 			$OutBufferStatement
-			`$WrappedCmd = `$ExecutionContext.InvokeCommand.GetCommand($($CommandDefinitionName), [System.Management.Automation.CommandTypes]::$($Command.CommandType))
+			`$WrappedCmd = `$ExecutionContext.InvokeCommand.GetCommand($CommandName, [System.Management.Automation.CommandTypes]::$CommandType)
 			$ArgsStatement
 			`$ScriptCmd = { & `$WrappedCmd @PSBoundParameters }
 
