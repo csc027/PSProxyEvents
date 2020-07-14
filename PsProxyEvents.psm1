@@ -1,3 +1,40 @@
+$global:InjectBlocks = @{};
+
+function Save-ScriptBlock {
+	[CmdletBinding()]
+	param (
+		[Parameter(Position = 0, Mandatory = $true)]
+			[String] $CommandName,
+
+		[Parameter(Position = 1, Mandatory = $true)]
+			[ScriptBlock] $Block,
+
+		[Switch] $After,
+
+		[Switch] $Before,
+
+		[Switch] $Process
+	)
+
+	end {
+		if ($null -eq $global:InjectBlocks.$CommandName) {
+			$global:InjectBlocks.$CommandName = @{
+				'After' = @();
+				'Before' = @();
+				'Process' = @();
+			};
+		}
+
+		if ($After) {
+			$global:InjectBlocks.$CommandName['After'] += $Block;
+		} elseif ($Before) {
+			$global:InjectBlocks.$CommandName['Before'] += $Block;
+		} elseif ($Process) {
+			$global:InjectBlocks.$CommandName['Process'] += $Block;
+		}
+	}
+}
+
 function Register-ProxyEvent {
 	[CmdletBinding()]
 	param (
@@ -6,23 +43,23 @@ function Register-ProxyEvent {
 	)
 
 	begin {
-		$CommandType = $Command.CommandType;
-		$CommandName = if ($Command.ModuleName) {
+		$FullCommandName = if ($Command.ModuleName) {
 			"$($Command.ModuleName)\$($Command.Name)";
 		} else {
 			$Command.Name;
 		}
+		Save-ScriptBlock -CommandName $FullCommandName -Block $Before -Before;
 		$MetaData = New-Object System.Management.Automation.CommandMetaData($Command);
 		$CmdletBindingAttribute = [System.Management.Automation.ProxyCommand]::GetCmdletBindingAttribute($MetaData);
 		$ParamBlock = [System.Management.Automation.ProxyCommand]::GetParamBlock($MetaData);
 		$ArgsStatement = if ($Command.Definition -match "\`$args") {
-			'$PSBoundParameters.Add(''$args'', $args)';
+			'$PSBoundParameters.Add(''$args'', $args);';
 		}
 		$OutBufferStatement = if ($Command.Parameters.ContainsKey('OutBuffer')) {
 			@'
-$OutBuffer = $null
+$OutBuffer = $null;
 			if ($PSBoundParameters.TryGetValue('OutBuffer', [ref]$OutBuffer)) {
-				$PSBoundParameters['OutBuffer'] = 1
+				$PSBoundParameters['OutBuffer'] = 1;
 			}
 '@;
 		}
@@ -30,33 +67,30 @@ $OutBuffer = $null
 			@"
 dynamicparam {
 		try {
-			`$TargetCmd = `$ExecutionContext.InvokeCommand.GetCommand('$CommandName', [System.Management.Automation.CommandTypes]::$CommandType, `$PSBoundParameters)
-			`$DynamicParams = @(`$TargetCmd.Parameters.GetEnumerator() | Microsoft.PowerShell.Core\Where-Object { `$_.Value.IsDynamic })
+			`$TargetCmd = `$ExecutionContext.InvokeCommand.GetCommand('$FullCommandName', [System.Management.Automation.CommandTypes]::$($Command.CommandType), `$PSBoundParameters);
+			`$DynamicParams = @(`$TargetCmd.Parameters.GetEnumerator() | Microsoft.PowerShell.Core\Where-Object { `$_.Value.IsDynamic });
 			if (`$DynamicParams.Length -gt 0) {
-				`$ParamDictionary = [Management.Automation.RuntimeDefinedParameterDictionary]::new()
+				`$ParamDictionary = [Management.Automation.RuntimeDefinedParameterDictionary]::new();
 				foreach (`$Param in `$DynamicParams) {
-					`$Param = `$Param.Value
+					`$Param = `$Param.Value;
 
 					if(-not `$MyInvocation.MyCommand.Parameters.ContainsKey(`$Param.Name)) {
-						`$DynParam = [Management.Automation.RuntimeDefinedParameter]::new(`$Param.Name, `$Param.ParameterType, `$Param.Attributes)
-						`$ParamDictionary.Add(`$Param.Name, `$DynParam)
+						`$DynParam = [Management.Automation.RuntimeDefinedParameter]::new(`$Param.Name, `$Param.ParameterType, `$Param.Attributes);
+						`$ParamDictionary.Add(`$Param.Name, `$DynParam);
 					}
 				}
 
-				return `$ParamDictionary
+				return `$ParamDictionary;
 			}
 		} catch {
-			throw
+			throw;
 		}
 	}
 "@;
 		}
-	}
 
-	end {
-		$global:Before = $Before
 		$CommandDefinition = @"
-function Invoke-Proxy$($Command -replace '-', '') {
+function global:Invoke-Proxy$($Command.Name -replace '-', '') {
 	$CmdletBindingAttribute
 	param($($ParamBlock -replace '    ', "`t`t")
 	)
@@ -64,46 +98,48 @@ function Invoke-Proxy$($Command -replace '-', '') {
 	begin {
 		try {
 			$OutBufferStatement
-			`$WrappedCmd = `$ExecutionContext.InvokeCommand.GetCommand('$CommandName', [System.Management.Automation.CommandTypes]::$CommandType)
+			`$WrappedCmd = `$ExecutionContext.InvokeCommand.GetCommand('$FullCommandName', [System.Management.Automation.CommandTypes]::$($Command.CommandType));
 			$ArgsStatement
-			`$ScriptCmd = { & `$WrappedCmd @PSBoundParameters }
+			`$ScriptCmd = { & `$WrappedCmd @PSBoundParameters };
 
-			`$BeforePipeline = `$global:Before.GetSteppablePipeline(`$MyInvocation.CommandOrigin)
-			`$BeforePipeline.Begin(`$PSCmdlet)
+			foreach(`$Block in `$global:InjectBlocks.'$FullCommandName'.Before) {
+				& `$Block;
+			}
 
-			`$SteppablePipeline = `$ScriptCmd.GetSteppablePipeline(`$MyInvocation.CommandOrigin)
-			`$SteppablePipeline.Begin(`$PSCmdlet)
+			`$SteppablePipeline = `$ScriptCmd.GetSteppablePipeline(`$MyInvocation.CommandOrigin);
+			`$SteppablePipeline.Begin(`$PSCmdlet);
 		} catch {
-			throw
+			throw;
 		}
 	}
 
 	process {
 		try {
-			`$BeforePipeline.Process(`$_)
-			`$SteppablePipeline.Process(`$_)
+			`$SteppablePipeline.Process(`$_);
 		} catch {
-			throw
+			throw;
 		}
 	}
 
 	end {
 		try {
-			`$BeforePipeline.End()
-			`$SteppablePipeline.End()
+			`$SteppablePipeline.End();
 		} catch {
-			throw
+			throw;
 		}
 	}
 }
 <#
 
-.ForwardHelpTargetName $CommandName
-.ForwardHelpCategory $CommandType
+.ForwardHelpTargetName $FullCommandName
+.ForwardHelpCategory $($Command.CommandType)
 
 #>
 "@;
 
-		return $CommandDefinition;
+	}
+
+	end {
+		Invoke-Expression -Command $CommandDefinition;
 	}
 }
