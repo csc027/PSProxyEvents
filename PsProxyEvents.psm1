@@ -1,4 +1,4 @@
-$global:InjectBlocks = @{};
+$script:InjectBlocks = @{};
 
 function Save-ScriptBlock {
 	[CmdletBinding()]
@@ -17,8 +17,8 @@ function Save-ScriptBlock {
 	)
 
 	end {
-		if ($null -eq $global:InjectBlocks.$CommandName) {
-			$global:InjectBlocks.$CommandName = @{
+		if ($null -eq $script:InjectBlocks.$CommandName) {
+			$script:InjectBlocks.$CommandName = @{
 				'After' = @();
 				'Before' = @();
 				'Process' = @();
@@ -26,11 +26,11 @@ function Save-ScriptBlock {
 		}
 
 		if ($After) {
-			$global:InjectBlocks.$CommandName['After'] += $Block;
+			$script:InjectBlocks.$CommandName['After'] += $Block;
 		} elseif ($Before) {
-			$global:InjectBlocks.$CommandName['Before'] += $Block;
+			$script:InjectBlocks.$CommandName['Before'] += $Block;
 		} elseif ($Process) {
-			$global:InjectBlocks.$CommandName['Process'] += $Block;
+			$script:InjectBlocks.$CommandName['Process'] += $Block;
 		}
 	}
 }
@@ -102,7 +102,7 @@ function global:Invoke-Proxy$($Command.Name -replace '-', '') {
 			$ArgsStatement
 			`$ScriptCmd = { & `$WrappedCmd @PSBoundParameters };
 
-			foreach(`$Block in `$global:InjectBlocks.'$FullCommandName'.Before) {
+			foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.Before) {
 				& `$Block;
 			}
 
