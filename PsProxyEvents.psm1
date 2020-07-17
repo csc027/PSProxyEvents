@@ -27,9 +27,11 @@ function Save-ScriptBlock {
 
 		if ($After) {
 			$script:InjectBlocks.$CommandName['After'] += $Block;
-		} elseif ($Before) {
+		}
+		if ($Before) {
 			$script:InjectBlocks.$CommandName['Before'] += $Block;
-		} elseif ($Process) {
+		}
+		if ($Process) {
 			$script:InjectBlocks.$CommandName['Process'] += $Block;
 		}
 	}
