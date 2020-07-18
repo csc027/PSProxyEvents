@@ -57,11 +57,7 @@ function Save-ScriptBlock {
 		[Switch] $After
 	)
 	begin {
-		$CommandName = if ($Command.ModuleName) {
-			"$($Command.ModuleName)\$($Command.Name)";
-		} else {
-			$Command.Name;
-		}
+		$CommandName = Get-CommandName -Command $Command;
 	}
 
 	end {
@@ -72,6 +68,7 @@ function Save-ScriptBlock {
 			};
 		}
 
+		$MetaData = Microsoft.PowerShell.Utility\New-Object System.Management.Automation.CommandMetaData($Command);
 		$ParamBlock = "param($([System.Management.Automation.ProxyCommand]::GetParamBlock($MetaData)))";
 		$ParamInjectedBlock = [ScriptBlock]::Create($ParamBlock + $ScriptBlock.ToString());
 
@@ -84,41 +81,52 @@ function Save-ScriptBlock {
 	}
 }
 
-function Register-ProxyEvent {
+function New-ProxyEventAlias {
 	[CmdletBinding()]
 	param (
 		[Parameter(Position = 0, Mandatory = $true)]
-			[System.Management.Automation.CommandInfo] $Command,
-
-		[Parameter(Position = 1, Mandatory = $true)]
-			[ScriptBlock] $ScriptBlock,
-
-
-
+			[System.Management.Automation.CommandInfo] $Command
 	)
 
 	begin {
-		$FullCommandName = if ($Command.ModuleName) {
-			"$($Command.ModuleName)\$($Command.Name)";
-		} else {
-			$Command.Name;
+		if (
+			-not (Get-Command -Name $Command.Name -CommandType 'Alias' -Module 'PsProxyEvents' -ErrorAction 'Ignore') `
+			-and (Get-Command -Name $Command.Name -CommandType 'Alias' -ErrorAction 'Ignore')
+		) {
+			# Backup old alias
+			Rename-Item -Path "Alias:\$($Command.Name)" -NewName (New-BackupAliasName -Name $Command.Name);
 		}
-		Save-ScriptBlock @PsBoundParameters;
-		$MetaData = New-Object System.Management.Automation.CommandMetaData($Command);
+	}
+
+	end {
+		Set-Alias -Name $Command.Name -Value (Get-ProxyEventFunctionName -Command $Command) -Scope 'Global';
+	}
+}
+
+function New-ProxyEventFunction {
+	[CmdletBinding()]
+	param (
+		[Parameter(Position = 0, Mandatory = $true)]
+			[System.Management.Automation.CommandInfo] $Command
+	)
+
+	end {
+		$FullCommandName = Get-CommandName -Command $Command;
+		$MetaData = Microsoft.PowerShell.Utility\New-Object System.Management.Automation.CommandMetaData($Command);
 		$CmdletBindingAttribute = [System.Management.Automation.ProxyCommand]::GetCmdletBindingAttribute($MetaData);
 		$ParamBlock = "param($([System.Management.Automation.ProxyCommand]::GetParamBlock($MetaData)))";
-		$ArgsStatement = if ($Command.Definition -match "\`$args") {
+		$ArgsStatement = if ($Command.Definition -match '\$args') {
 			'$PSBoundParameters.Add(''$args'', $args);';
 		}
 		$OutBufferStatement = if ($Command.Parameters.ContainsKey('OutBuffer')) {
 			'$OutBuffer = $null; if ($PSBoundParameters.TryGetValue(''OutBuffer'', [ref]$OutBuffer)) { $PSBoundParameters[''OutBuffer''] = 1; }';
 		}
-		$DynamicParamBlock = if (($Command.Parameters.Values | Microsoft.Powershell.Core\Where-Object { $_.IsDynamic }).Count -gt 0) {
+		$DynamicParamBlock = if (($Command.Parameters.Values | Microsoft.PowerShell.Core\Where-Object { $_.IsDynamic }).Count -gt 0) {
 			"dynamicparam { $([System.Management.Automation.ProxyCommand]::GetDynamicParam($MetaData)) }";
 		}
 
-		$CommandDefinition = @"
-function global:Invoke-Proxy$($Command.Name -replace '-', '') {
+		return @"
+function global:$(Get-ProxyEventFunctionName -Command $Command) {
 	$CmdletBindingAttribute
 	$ParamBlock
 
@@ -171,8 +179,29 @@ function global:Invoke-Proxy$($Command.Name -replace '-', '') {
 "@;
 
 	}
+}
+
+function Register-ProxyEvent {
+	[CmdletBinding()]
+	param (
+		[Parameter(Position = 0, Mandatory = $true)]
+			[System.Management.Automation.CommandInfo] $Command,
+
+		[Parameter(Position = 1, Mandatory = $true)]
+			[ScriptBlock] $ScriptBlock,
+
+		[Switch] $Before,
+
+		[Switch] $After
+	)
+
+	begin {
+		Save-ScriptBlock @PsBoundParameters;
+		$CommandDefinition = New-ProxyEventFunction -Command $Command;
+	}
 
 	end {
-		Invoke-Expression -Command $CommandDefinition;
+		Microsoft.PowerShell.Utility\Invoke-Expression -Command $CommandDefinition;
+		New-ProxyEventAlias -Command $Command;
 	}
 }
