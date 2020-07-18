@@ -125,6 +125,13 @@ function New-ProxyEventFunction {
 			"dynamicparam { $([System.Management.Automation.ProxyCommand]::GetDynamicParam($MetaData)) }";
 		}
 
+		$BeforeExecuteStatement = "foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.Before) { & `$Block @PsBoundParameters; }"
+		$AfterExecuteStatement = "foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.After) { & `$Block @PsBoundParameters; }"
+
+		$BeginBlock = [System.Management.Automation.ProxyCommand]::GetBegin($MetaData) -replace '\$SteppablePipeline\.Begin', "$BeforeExecuteStatement; `$SteppablePipeline\.Begin";
+		$ProcessBlock = [System.Management.Automation.ProxyCommand]::GetProcess($MetaData);
+		$EndBlock = [System.Management.Automation.ProxyCommand]::GetEnd($MetaData) -replace '\$SteppablePipeline\.End\(\)', "`$SteppablePipeline\.End(); $AfterExecuteStatement; ";
+
 		return @"
 function global:$(PsProxyEvents\Get-ProxyEventFunctionName -Command $Command) {
 	$CmdletBindingAttribute
@@ -132,43 +139,11 @@ function global:$(PsProxyEvents\Get-ProxyEventFunctionName -Command $Command) {
 
 	$DynamicParamBlock
 
-	begin {
-		try {
-			$OutBufferStatement
-			`$WrappedCmd = `$ExecutionContext.InvokeCommand.GetCommand('$FullCommandName', [System.Management.Automation.CommandTypes]::$($Command.CommandType));
-			$ArgsStatement
-			`$ScriptCmd = { & `$WrappedCmd @PSBoundParameters };
+	begin { $BeginBlock }
 
-			foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.Before) {
-				& `$Block @PsBoundParameters;
-			}
+	process { $ProcessBlock }
 
-			`$SteppablePipeline = `$ScriptCmd.GetSteppablePipeline(`$MyInvocation.CommandOrigin);
-			`$SteppablePipeline.Begin(`$PSCmdlet);
-		} catch {
-			throw;
-		}
-	}
-
-	process {
-		try {
-			`$SteppablePipeline.Process(`$_);
-		} catch {
-			throw;
-		}
-	}
-
-	end {
-		try {
-			`$SteppablePipeline.End();
-
-			foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.After) {
-				& `$Block @PsBoundParameters;
-			}
-		} catch {
-			throw;
-		}
-	}
+	end { $EndBlock }
 }
 <#
 
