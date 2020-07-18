@@ -115,22 +115,13 @@ function New-ProxyEventFunction {
 		$MetaData = Microsoft.PowerShell.Utility\New-Object System.Management.Automation.CommandMetaData($Command);
 		$CmdletBindingAttribute = [System.Management.Automation.ProxyCommand]::GetCmdletBindingAttribute($MetaData);
 		$ParamBlock = "param($([System.Management.Automation.ProxyCommand]::GetParamBlock($MetaData)))";
-		$ArgsStatement = if ($Command.Definition -match '\$args') {
-			'$PSBoundParameters.Add(''$args'', $args);';
-		}
-		$OutBufferStatement = if ($Command.Parameters.ContainsKey('OutBuffer')) {
-			'$OutBuffer = $null; if ($PSBoundParameters.TryGetValue(''OutBuffer'', [ref]$OutBuffer)) { $PSBoundParameters[''OutBuffer''] = 1; }';
-		}
-		$DynamicParamBlock = if (($Command.Parameters.Values | Microsoft.PowerShell.Core\Where-Object { $_.IsDynamic }).Count -gt 0) {
-			"dynamicparam { $([System.Management.Automation.ProxyCommand]::GetDynamicParam($MetaData)) }";
-		}
 
 		$BeforeExecuteStatement = "foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.Before) { & `$Block @PsBoundParameters; }"
 		$AfterExecuteStatement = "foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.After) { & `$Block @PsBoundParameters; }"
 
-		$BeginBlock = [System.Management.Automation.ProxyCommand]::GetBegin($MetaData) -replace '\$SteppablePipeline\.Begin', "$BeforeExecuteStatement; `$SteppablePipeline\.Begin";
+		$BeginBlock = [System.Management.Automation.ProxyCommand]::GetBegin($MetaData) -replace '\$SteppablePipeline\.Begin', "$BeforeExecuteStatement; `$SteppablePipeline.Begin";
 		$ProcessBlock = [System.Management.Automation.ProxyCommand]::GetProcess($MetaData);
-		$EndBlock = [System.Management.Automation.ProxyCommand]::GetEnd($MetaData) -replace '\$SteppablePipeline\.End\(\)', "`$SteppablePipeline\.End(); $AfterExecuteStatement; ";
+		$EndBlock = [System.Management.Automation.ProxyCommand]::GetEnd($MetaData) -replace '\$SteppablePipeline\.End\(\)', "`$SteppablePipeline.End(); $AfterExecuteStatement; ";
 
 		return @"
 function global:$(PsProxyEvents\Get-ProxyEventFunctionName -Command $Command) {
@@ -172,11 +163,14 @@ function Register-ProxyEvent {
 
 	begin {
 		PsProxyEvents\Save-ScriptBlock @PsBoundParameters;
-		$CommandDefinition = PsProxyEvents\New-ProxyEventFunction -Command $Command;
+
+		if (-not (Microsoft.PowerShell.Core\Get-Command -Name (Get-ProxyEventFunctionName -Command $Command) -ErrorAction 'Ignore')) {
+			$CommandDefinition = PsProxyEvents\New-ProxyEventFunction -Command $Command;
+			Microsoft.PowerShell.Utility\Invoke-Expression -Command $CommandDefinition;
+		}
 	}
 
 	end {
-		Microsoft.PowerShell.Utility\Invoke-Expression -Command $CommandDefinition;
 		PsProxyEvents\New-ProxyEventAlias -Command $Command;
 	}
 }
