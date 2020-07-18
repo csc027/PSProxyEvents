@@ -1,5 +1,48 @@
 $script:InjectBlocks = @{};
 
+function Get-CommandName {
+	[CmdletBinding()]
+	param (
+		[Parameter(Position = 0, Mandatory = $true)]
+			[System.Management.Automation.CommandInfo] $Command
+	)
+
+	end {
+		if ($Command.ModuleName) {
+			return $Command.ModuleName + '\' + $Command.Name;
+		}
+		return $Command.Name;
+	}
+}
+
+function Get-ProxyEventFunctionName {
+	param (
+		[Parameter(Position = 0, Mandatory = $true)]
+			[System.Management.Automation.CommandInfo] $Command
+	)
+
+	end {
+		return 'Invoke-Proxy' + ($Command.Name -replace '-', '')
+	}
+}
+
+function New-BackupAliasName {
+	param (
+		[String] $Name
+	)
+
+	begin {
+		$i = 1
+		while (Test-Path -Path "Alias\$Name.$i") {
+			$i++;
+		}
+	}
+
+	end {
+		return "$Name.$i";
+	}
+}
+
 function Save-ScriptBlock {
 	[CmdletBinding()]
 	param (
