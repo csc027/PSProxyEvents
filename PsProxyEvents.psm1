@@ -52,11 +52,9 @@ function Save-ScriptBlock {
 		[Parameter(Position = 1, Mandatory = $true)]
 			[ScriptBlock] $ScriptBlock,
 
-		[Switch] $After,
-
 		[Switch] $Before,
 
-		[Switch] $Process
+		[Switch] $After
 	)
 	begin {
 		$CommandName = if ($Command.ModuleName) {
@@ -71,7 +69,6 @@ function Save-ScriptBlock {
 			$script:InjectBlocks.$CommandName = @{
 				'After' = @();
 				'Before' = @();
-				'Process' = @();
 			};
 		}
 
@@ -83,9 +80,6 @@ function Save-ScriptBlock {
 		}
 		if ($Before) {
 			$script:InjectBlocks.$CommandName['Before'] += $ParamInjectedBlock;
-		}
-		if ($Process) {
-			$script:InjectBlocks.$CommandName['Process'] += $ParamInjectedBlock;
 		}
 	}
 }
@@ -99,11 +93,8 @@ function Register-ProxyEvent {
 		[Parameter(Position = 1, Mandatory = $true)]
 			[ScriptBlock] $ScriptBlock,
 
-		[Switch] $After,
 
-		[Switch] $Before,
 
-		[Switch] $Process
 	)
 
 	begin {
