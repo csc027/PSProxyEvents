@@ -33,7 +33,7 @@ function New-BackupAliasName {
 
 	begin {
 		$i = 1
-		while (Test-Path -Path "Alias\$Name.$i") {
+		while (Microsoft.PowerShell.Management\Test-Path -Path "Alias\$Name.$i") {
 			$i++;
 		}
 	}
@@ -57,7 +57,7 @@ function Save-ScriptBlock {
 		[Switch] $After
 	)
 	begin {
-		$CommandName = Get-CommandName -Command $Command;
+		$CommandName = PsProxyEvents\Get-CommandName -Command $Command;
 	}
 
 	end {
@@ -90,16 +90,16 @@ function New-ProxyEventAlias {
 
 	begin {
 		if (
-			-not (Get-Command -Name $Command.Name -CommandType 'Alias' -Module 'PsProxyEvents' -ErrorAction 'Ignore') `
-			-and (Get-Command -Name $Command.Name -CommandType 'Alias' -ErrorAction 'Ignore')
+			-not (Microsoft.PowerShell.Core\Get-Command -Name $Command.Name -CommandType 'Alias' -Module 'PsProxyEvents' -ErrorAction 'Ignore') `
+			-and (Microsoft.PowerShell.Core\Get-Command -Name $Command.Name -CommandType 'Alias' -ErrorAction 'Ignore')
 		) {
 			# Backup old alias
-			Rename-Item -Path "Alias:\$($Command.Name)" -NewName (New-BackupAliasName -Name $Command.Name);
+			Microsoft.PowerShell.Management\Rename-Item -Path "Alias:\$($Command.Name)" -NewName (PsProxyEvents\New-BackupAliasName -Name $Command.Name);
 		}
 	}
 
 	end {
-		Set-Alias -Name $Command.Name -Value (Get-ProxyEventFunctionName -Command $Command) -Scope 'Global';
+		Microsoft.PowerShell.Utility\Set-Alias -Name $Command.Name -Value (PsProxyEvents\Get-ProxyEventFunctionName -Command $Command) -Scope 'Global';
 	}
 }
 
@@ -111,7 +111,7 @@ function New-ProxyEventFunction {
 	)
 
 	end {
-		$FullCommandName = Get-CommandName -Command $Command;
+		$FullCommandName = PsProxyEvents\Get-CommandName -Command $Command;
 		$MetaData = Microsoft.PowerShell.Utility\New-Object System.Management.Automation.CommandMetaData($Command);
 		$CmdletBindingAttribute = [System.Management.Automation.ProxyCommand]::GetCmdletBindingAttribute($MetaData);
 		$ParamBlock = "param($([System.Management.Automation.ProxyCommand]::GetParamBlock($MetaData)))";
@@ -126,7 +126,7 @@ function New-ProxyEventFunction {
 		}
 
 		return @"
-function global:$(Get-ProxyEventFunctionName -Command $Command) {
+function global:$(PsProxyEvents\Get-ProxyEventFunctionName -Command $Command) {
 	$CmdletBindingAttribute
 	$ParamBlock
 
@@ -196,12 +196,12 @@ function Register-ProxyEvent {
 	)
 
 	begin {
-		Save-ScriptBlock @PsBoundParameters;
-		$CommandDefinition = New-ProxyEventFunction -Command $Command;
+		PsProxyEvents\Save-ScriptBlock @PsBoundParameters;
+		$CommandDefinition = PsProxyEvents\New-ProxyEventFunction -Command $Command;
 	}
 
 	end {
 		Microsoft.PowerShell.Utility\Invoke-Expression -Command $CommandDefinition;
-		New-ProxyEventAlias -Command $Command;
+		PsProxyEvents\New-ProxyEventAlias -Command $Command;
 	}
 }
