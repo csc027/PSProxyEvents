@@ -4,7 +4,7 @@ $script:SafeCommands = @{
 		[CmdletBinding()]
 		param (
 			[Parameter(Position = 0, Mandatory = $true)]
-				[System.Management.Automation.CommandInfo] $Command
+			[System.Management.Automation.CommandInfo] $Command
 		)
 
 		end {
@@ -17,7 +17,7 @@ $script:SafeCommands = @{
 	'Get-ProxyEventFunctionName' = {
 		param (
 			[Parameter(Position = 0, Mandatory = $true)]
-				[System.Management.Automation.CommandInfo] $Command
+			[System.Management.Automation.CommandInfo] $Command
 		)
 
 		end {
@@ -43,10 +43,10 @@ $script:SafeCommands = @{
 	'Save-ScriptBlock' = {
 		param (
 			[Parameter(Position = 0, Mandatory = $true)]
-				[System.Management.Automation.CommandInfo] $Command,
+			[System.Management.Automation.CommandInfo] $Command,
 
 			[Parameter(Position = 1, Mandatory = $true)]
-				[ScriptBlock] $ScriptBlock,
+			[ScriptBlock] $ScriptBlock,
 
 			[Switch] $Before,
 
@@ -82,7 +82,7 @@ $script:SafeCommands = @{
 		[CmdletBinding()]
 		param (
 			[Parameter(Position = 0, Mandatory = $true)]
-				[System.Management.Automation.CommandInfo] $Command
+			[System.Management.Automation.CommandInfo] $Command
 		)
 
 		begin {
@@ -103,7 +103,7 @@ $script:SafeCommands = @{
 		[CmdletBinding()]
 		param (
 			[Parameter(Position = 0, Mandatory = $true)]
-				[System.Management.Automation.CommandInfo] $Command
+			[System.Management.Automation.CommandInfo] $Command
 		)
 
 		end {
@@ -112,8 +112,8 @@ $script:SafeCommands = @{
 			$CmdletBindingAttribute = [System.Management.Automation.ProxyCommand]::GetCmdletBindingAttribute($MetaData);
 			$ParamBlock = "param($([System.Management.Automation.ProxyCommand]::GetParamBlock($MetaData)))";
 
-			$BeforeExecuteStatement = "foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.Before) { & `$Block @PsBoundParameters; }"
-			$AfterExecuteStatement = "foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.After) { & `$Block @PsBoundParameters; }"
+			$BeforeExecuteStatement = "foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.Before) { & `$Block @PsBoundParameters; }";
+			$AfterExecuteStatement = "foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.After) { & `$Block @PsBoundParameters; }";
 
 			$BeginBlock = [System.Management.Automation.ProxyCommand]::GetBegin($MetaData) -replace '\$SteppablePipeline\.Begin', "$BeforeExecuteStatement; `$SteppablePipeline.Begin";
 			$ProcessBlock = [System.Management.Automation.ProxyCommand]::GetProcess($MetaData);
@@ -148,10 +148,10 @@ function Register-ProxyEvent {
 	[CmdletBinding()]
 	param (
 		[Parameter(Position = 0, Mandatory = $true)]
-			[System.Management.Automation.CommandInfo] $Command,
+		[System.Management.Automation.CommandInfo] $Command,
 
 		[Parameter(Position = 1, Mandatory = $true)]
-			[ScriptBlock] $ScriptBlock,
+		[ScriptBlock] $ScriptBlock,
 
 		[Switch] $Before,
 
