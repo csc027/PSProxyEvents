@@ -24,22 +24,6 @@ $script:SafeCommands = @{
 			return 'Invoke-Proxy' + ($Command.Name -replace '-', '')
 		}
 	};
-	'New-BackupAliasName' = {
-		param (
-			[String] $Name
-		)
-
-		begin {
-			$i = 1
-			while (Microsoft.PowerShell.Management\Test-Path -Path "Alias\$Name.$i") {
-				$i++;
-			}
-		}
-
-		end {
-			return "$Name.$i";
-		}
-	};
 	'Save-ScriptBlock' = {
 		param (
 			[Parameter(Position = 0, Mandatory = $true)]
@@ -85,18 +69,7 @@ $script:SafeCommands = @{
 			[System.Management.Automation.CommandInfo] $Command
 		)
 
-		begin {
-			if (
-				-not (Microsoft.PowerShell.Core\Get-Command -Name $Command.Name -CommandType 'Alias' -Module 'PsProxyEvents' -ErrorAction 'Ignore') `
-				-and (Microsoft.PowerShell.Core\Get-Command -Name $Command.Name -CommandType 'Alias' -ErrorAction 'Ignore')
-			) {
-				# Backup old alias
-				Microsoft.PowerShell.Management\Rename-Item -Path "Alias:\$($Command.Name)" -NewName (& $script:SafeCommands['New-BackupAliasName'] -Name $Command.Name);
-			}
-		}
-
 		end {
-			Microsoft.PowerShell.Utility\Set-Alias -Name $Command.Name -Value (& $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Command) -Scope 'Global';
 		}
 	};
 	'New-ProxyEventFunction' = {
@@ -120,24 +93,16 @@ $script:SafeCommands = @{
 			$EndBlock = [System.Management.Automation.ProxyCommand]::GetEnd($MetaData) -replace '\$SteppablePipeline\.End\(\)', "`$SteppablePipeline.End(); $AfterExecuteStatement; ";
 
 			return @"
-function global:$(& $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Command) {
-	$CmdletBindingAttribute
-	$ParamBlock
+$CmdletBindingAttribute
+$ParamBlock
 
-	$DynamicParamBlock
+$DynamicParamBlock
 
-	begin { $BeginBlock }
+begin { $BeginBlock; }
 
-	process { $ProcessBlock }
+process { $ProcessBlock }
 
-	end { $EndBlock }
-}
-<#
-
-.ForwardHelpTargetName $FullCommandName
-.ForwardHelpCategory $($Command.CommandType)
-
-#>
+end { $EndBlock }
 "@;
 
 		}
@@ -161,14 +126,19 @@ function Register-ProxyEvent {
 	begin {
 		& $script:SafeCommands['Save-ScriptBlock'] @PsBoundParameters;
 
-		if (-not (Microsoft.PowerShell.Core\Get-Command -Name (& $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Command) -ErrorAction 'Ignore')) {
-			$CommandDefinition = & $script:SafeCommands['New-ProxyEventFunction'] -Command $Command;
-			Microsoft.PowerShell.Utility\Invoke-Expression -Command $CommandDefinition;
+		$CommandDefinition = & $script:SafeCommands['New-ProxyEventFunction'] -Command $Command;
+		$FunctionName = & $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Command;
+		if (Microsoft.PowerShell.Management\Test-Path -Path "Function:\$FunctionName") {
+			Microsoft.PowerShell.Management\Remove-Item -Path "Function:\$FunctionName";
 		}
+		$ScriptBlock = [ScriptBlock]::Create($CommandDefinition);
 	}
 
 	end {
-		& $script:SafeCommands['New-ProxyEventAlias'] -Command $Command;
+		Microsoft.PowerShell.Management\New-Item -Path 'Function:\' -Name $FunctionName -Value $ScriptBlock > $null;
+		Microsoft.PowerShell.Utility\Set-Alias -Name $Command.Name -Value (& $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Command);
+		Microsoft.PowerShell.Core\Export-ModuleMember -Function $FunctionName;
+		Microsoft.PowerShell.Core\Export-ModuleMember -Alias $Command.Name;
 	}
 }
 
