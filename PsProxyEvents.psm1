@@ -171,3 +171,5 @@ function Register-ProxyEvent {
 		& $script:SafeCommands['New-ProxyEventAlias'] -Command $Command;
 	}
 }
+
+Microsoft.PowerShell.Core\Export-ModuleMember -Function 'Register-ProxyEvent';
