@@ -24,44 +24,6 @@ $script:SafeCommands = @{
 			return 'Invoke-Proxy' + ($Command.Name -replace '-', '')
 		}
 	};
-	'Save-ScriptBlock' = {
-		param (
-			[Parameter(Position = 0, Mandatory = $true)]
-			[System.Management.Automation.CommandInfo] $Command,
-
-			[Parameter(Position = 1, Mandatory = $true)]
-			[ScriptBlock] $ScriptBlock,
-
-			[Switch] $Before,
-
-			[Switch] $After
-		)
-
-		begin {
-			$CommandName = & $script:SafeCommands['Get-CommandName'] -Command $Command;
-		}
-
-		end {
-			if ($null -eq $script:EventBlocks.$CommandName) {
-				$script:EventBlocks.$CommandName = @{
-					'After' = @();
-					'Before' = @();
-				};
-			}
-
-			$MetaData = Microsoft.PowerShell.Utility\New-Object System.Management.Automation.CommandMetaData($Command);
-			$ParamBlock = "param($([System.Management.Automation.ProxyCommand]::GetParamBlock($MetaData)))";
-			$ParamEventBlock = [ScriptBlock]::Create($ParamBlock + $ScriptBlock.ToString());
-
-			if ($Before) {
-				$script:EventBlocks.$CommandName.Before += @($ParamEventBlock);
-			}
-
-			if ($After) {
-				$script:EventBlocks.$CommandName.After += @($ParamEventBlock);
-			}
-		}
-	};
 	'New-ProxyEventAlias' = {
 		[CmdletBinding()]
 		param (
@@ -106,6 +68,44 @@ function $(& $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Comman
 }
 "@;
 
+		}
+	};
+	'Save-ScriptBlock' = {
+		param (
+			[Parameter(Position = 0, Mandatory = $true)]
+			[System.Management.Automation.CommandInfo] $Command,
+
+			[Parameter(Position = 1, Mandatory = $true)]
+			[ScriptBlock] $ScriptBlock,
+
+			[Switch] $Before,
+
+			[Switch] $After
+		)
+
+		begin {
+			$CommandName = & $script:SafeCommands['Get-CommandName'] -Command $Command;
+		}
+
+		end {
+			if ($null -eq $script:EventBlocks.$CommandName) {
+				$script:EventBlocks.$CommandName = @{
+					'After' = @();
+					'Before' = @();
+				};
+			}
+
+			$MetaData = Microsoft.PowerShell.Utility\New-Object System.Management.Automation.CommandMetaData($Command);
+			$ParamBlock = "param($([System.Management.Automation.ProxyCommand]::GetParamBlock($MetaData)))";
+			$ParamEventBlock = [ScriptBlock]::Create($ParamBlock + $ScriptBlock.ToString());
+
+			if ($Before) {
+				$script:EventBlocks.$CommandName.Before += @($ParamEventBlock);
+			}
+
+			if ($After) {
+				$script:EventBlocks.$CommandName.After += @($ParamEventBlock);
+			}
 		}
 	};
 };
