@@ -141,5 +141,3 @@ function Register-ProxyEvent {
 		Microsoft.PowerShell.Core\Export-ModuleMember -Alias $Command.Name;
 	}
 }
-
-Microsoft.PowerShell.Core\Export-ModuleMember -Function 'Register-ProxyEvent';
