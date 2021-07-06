@@ -1,4 +1,4 @@
-$script:InjectBlocks = @{};
+$script:EventBlocks = @{};
 $script:SafeCommands = @{
 	'Get-CommandName' = {
 		[CmdletBinding()]
@@ -42,8 +42,8 @@ $script:SafeCommands = @{
 		}
 
 		end {
-			if ($null -eq $script:InjectBlocks.$CommandName) {
-				$script:InjectBlocks.$CommandName = @{
+			if ($null -eq $script:EventBlocks.$CommandName) {
+				$script:EventBlocks.$CommandName = @{
 					'After' = @();
 					'Before' = @();
 				};
@@ -51,14 +51,14 @@ $script:SafeCommands = @{
 
 			$MetaData = Microsoft.PowerShell.Utility\New-Object System.Management.Automation.CommandMetaData($Command);
 			$ParamBlock = "param($([System.Management.Automation.ProxyCommand]::GetParamBlock($MetaData)))";
-			$ParamInjectedBlock = [ScriptBlock]::Create($ParamBlock + $ScriptBlock.ToString());
+			$ParamEventBlock = [ScriptBlock]::Create($ParamBlock + $ScriptBlock.ToString());
 
 			if ($Before) {
-				$script:InjectBlocks.$CommandName.Before += @($ParamInjectedBlock);
+				$script:EventBlocks.$CommandName.Before += @($ParamEventBlock);
 			}
 
 			if ($After) {
-				$script:InjectBlocks.$CommandName.After += @($ParamInjectedBlock);
+				$script:EventBlocks.$CommandName.After += @($ParamEventBlock);
 			}
 		}
 	};
@@ -80,29 +80,30 @@ $script:SafeCommands = @{
 		)
 
 		end {
-			$FullCommandName = & $script:SafeCommands['Get-CommandName'] -Command $Command;
 			$MetaData = Microsoft.PowerShell.Utility\New-Object System.Management.Automation.CommandMetaData($Command);
 			$CmdletBindingAttribute = [System.Management.Automation.ProxyCommand]::GetCmdletBindingAttribute($MetaData);
 			$ParamBlock = "param($([System.Management.Automation.ProxyCommand]::GetParamBlock($MetaData)))";
 
-			$BeforeExecuteStatement = "foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.Before) { & `$Block @PsBoundParameters; }";
-			$AfterExecuteStatement = "foreach(`$Block in `$script:InjectBlocks.'$FullCommandName'.After) { & `$Block @PsBoundParameters; }";
+			$BeforeExecuteStatement = "foreach(`$Block in `$script:BeforeEventBlocks) { & `$Block @PsBoundParameters; }";
+			$AfterExecuteStatement = "foreach(`$Block in `$script:AfterEventBlocks) { & `$Block @PsBoundParameters; }";
 
 			$BeginBlock = [System.Management.Automation.ProxyCommand]::GetBegin($MetaData) -replace '\$SteppablePipeline\.Begin', "$BeforeExecuteStatement; `$SteppablePipeline.Begin";
 			$ProcessBlock = [System.Management.Automation.ProxyCommand]::GetProcess($MetaData);
 			$EndBlock = [System.Management.Automation.ProxyCommand]::GetEnd($MetaData) -replace '\$SteppablePipeline\.End\(\)', "`$SteppablePipeline.End(); $AfterExecuteStatement; ";
 
 			return @"
-$CmdletBindingAttribute
-$ParamBlock
+function $(& $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Command) {
+	$CmdletBindingAttribute
+	$ParamBlock
 
-$DynamicParamBlock
+	$DynamicParamBlock
 
-begin { $BeginBlock; }
+	begin { $BeginBlock; }
 
-process { $ProcessBlock }
+	process { $ProcessBlock }
 
-end { $EndBlock }
+	end { $EndBlock }
+}
 "@;
 
 		}
@@ -124,20 +125,44 @@ function Register-ProxyEvent {
 	)
 
 	begin {
-		& $script:SafeCommands['Save-ScriptBlock'] @PsBoundParameters;
+		$AliasName = $Command.Name;
+		$FunctionName = & $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Command;
+		$CommandName = & $script:SafeCommands['Get-CommandName'] -Command $Command;
+		$DynamicModuleName = "__DynamicModule_Proxy_$AliasName";
 
 		$CommandDefinition = & $script:SafeCommands['New-ProxyEventFunction'] -Command $Command;
-		$FunctionName = & $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Command;
-		if (Microsoft.PowerShell.Management\Test-Path -Path "Function:\$FunctionName") {
-			Microsoft.PowerShell.Management\Remove-Item -Path "Function:\$FunctionName";
-		}
-		$ScriptBlock = [ScriptBlock]::Create($CommandDefinition);
+		$ProxyScriptBlock = [ScriptBlock]::Create($CommandDefinition);
 	}
 
 	end {
-		Microsoft.PowerShell.Management\New-Item -Path 'Function:\' -Name $FunctionName -Value $ScriptBlock > $null;
-		Microsoft.PowerShell.Utility\Set-Alias -Name $Command.Name -Value (& $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Command);
-		Microsoft.PowerShell.Core\Export-ModuleMember -Function $FunctionName;
-		Microsoft.PowerShell.Core\Export-ModuleMember -Alias $Command.Name;
+		& $script:SafeCommands['Save-ScriptBlock'] @PsBoundParameters;
+
+		$ModuleBlock = {
+			param (
+				[String] $FunctionName,
+				[String] $AliasName,
+				[ScriptBlock[]] $BeforeEventBlocks = @(),
+				[ScriptBlock[]] $AfterEventBlocks = @(),
+				[ScriptBlock] $ProxyScriptBlock
+			)
+			$script:BeforeEventBlocks = $BeforeEventBlocks;
+			$script:AfterEventBlocks = $AfterEventBlocks;
+			. $ProxyScriptBlock;
+			Microsoft.PowerShell.Utility\Set-Alias -Name $AliasName -Value $FunctionName;
+			Microsoft.PowerShell.Core\Export-ModuleMember -Function $FunctionName -Alias $AliasName;
+		}
+
+		$Module = Microsoft.PowerShell.Core\New-Module -Name $DynamicModuleName -ScriptBlock $ModuleBlock -ArgumentList @(
+			$FunctionName,
+			$AliasName,
+			$script:EventBlocks.$CommandName.Before,
+			$script:EventBlocks.$CommandName.After,
+			$ProxyScriptBlock
+		);
+
+		if (Microsoft.PowerShell.Core\Get-Module -Name $DynamicModuleName) {
+			Microsoft.PowerShell.Core\Remove-Module -Name $DynamicModuleName;
+		}
+		Microsoft.PowerShell.Core\Import-Module -ModuleInfo $Module -Global;
 	}
 }
