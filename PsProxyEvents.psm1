@@ -98,7 +98,7 @@ function $(& $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Comman
 
 	$DynamicParamBlock
 
-	begin { $BeginBlock; }
+	begin { $BeginBlock }
 
 	process { $ProcessBlock }
 
