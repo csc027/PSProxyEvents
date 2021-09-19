@@ -252,7 +252,7 @@ function Register-ProxyEvent {
 
 		# Normalize on the command
 		if ($PSCmdlet.ParameterSetName -like 'CommandName*') {
-			$Command = Microsoft.PowerShell.Core\Get-Command -Name $CommandName -All | Where-Object { $_.ModuleName -notlike $script:ProxyModuleNamePrefix + '*' };
+			$Command = & $script:SafeCommands['Get-ExternalCommand'] -CommandName $CommandName;
 		}
 
 		$AliasName = $Command.Name;
