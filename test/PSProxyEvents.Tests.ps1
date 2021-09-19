@@ -18,6 +18,7 @@ Describe 'Proxy Events Tests' {
     Context 'ScriptBlock attaches and executes' {
         BeforeEach {
 			Import-Module -Name $script:ModulePath -Force;
+			Get-Module -Name '__DynamicModule_Proxy_*' | Remove-Module;
         }
 
         It 'Does not execute if not attached' {
@@ -90,6 +91,7 @@ Describe 'Proxy Events Tests' {
 		}
 
 		It 'Does not register if the command is from one of the dynamic modules created by the registration' {
+			{ Register-ProxyEvent -Command (Get-Command -Name 'Invoke-After') -ScriptBlock { Invoke-After; } -After } | Should -Not -Throw;
 			{ Register-ProxyEvent -Command (Get-Command -Name 'Invoke-After') -ScriptBlock { Invoke-After; } -After } | Should -Throw;
 		}
 	}
