@@ -13,7 +13,7 @@ GUID = '95e2082f-e504-4c8d-aac6-405ab002a72b'
 Author = 'Constantine Chen'
 
 # Copyright statement for this module
-Copyright = '(c) Constantine Chen 2020.'
+Copyright = '(c) Constantine Chen 2021.'
 
 # Description of the functionality provided by this module
 Description = 'Creates proxy commands to inject script blocks into existing code.'
@@ -22,9 +22,7 @@ Description = 'Creates proxy commands to inject script blocks into existing code
 PowerShellVersion = '3.0'
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @(
-	'Register-ProxyEvent'
-)
+FunctionsToExport = @('Register-ProxyEvent')
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()
