@@ -165,16 +165,31 @@ None
 #>
 
 function Register-ProxyEvent {
-	[CmdletBinding()]
+	[CmdletBinding(DefaultParameterSetName = 'CommandBefore')]
 	param (
-		[Parameter(Position = 0, Mandatory = $true)]
+		[Parameter(Position = 0, Mandatory = $true, ParameterSetName = 'CommandBefore')]
+		[Parameter(Position = 0, Mandatory = $true, ParameterSetName = 'CommandAfter')]
+		[Parameter(Position = 0, Mandatory = $true, ParameterSetName = 'CommandBeforeAfter')]
 		[System.Management.Automation.CommandInfo] $Command,
+
+		[Parameter(Position = 0, Mandatory = $true, ParameterSetName = 'CommandNameBefore')]
+		[Parameter(Position = 0, Mandatory = $true, ParameterSetName = 'CommandNameAfter')]
+		[Parameter(Position = 0, Mandatory = $true, ParameterSetName = 'CommandNameBeforeAfter')]
+		[String] $CommandName,
 
 		[Parameter(Position = 1, Mandatory = $true)]
 		[ScriptBlock] $ScriptBlock,
 
+		[Parameter(Mandatory = $true, ParameterSetName = 'CommandBefore')]
+		[Parameter(Mandatory = $true, ParameterSetName = 'CommandNameBefore')]
+		[Parameter(Mandatory = $true, ParameterSetName = 'CommandBeforeAfter')]
+		[Parameter(Mandatory = $true, ParameterSetName = 'CommandNameBeforeAfter')]
 		[Switch] $Before,
 
+		[Parameter(Mandatory = $true, ParameterSetName = 'CommandAfter')]
+		[Parameter(Mandatory = $true, ParameterSetName = 'CommandNameAfter')]
+		[Parameter(Mandatory = $true, ParameterSetName = 'CommandBeforeAfter')]
+		[Parameter(Mandatory = $true, ParameterSetName = 'CommandNameBeforeAfter')]
 		[Switch] $After
 	)
 
