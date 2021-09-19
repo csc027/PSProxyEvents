@@ -252,7 +252,12 @@ function Register-ProxyEvent {
 
 		# Normalize on the command
 		if ($PSCmdlet.ParameterSetName -like 'CommandName*') {
-			$Command = Microsoft.PowerShell.Core\Get-Command -Name $CommandName -All | Where-Object { $_.ModuleName -notlike $script:ProxyModuleNamePrefix + '*' };
+			$Command = & $script:SafeCommands['Get-ExternalCommand'] -CommandName $CommandName;
+		}
+
+		if ($Command.CommandType -eq [System.Management.Automation.CommandTypes]::Application) {
+			throw New-Object -TypeName System.NotSupportedException `
+				-ArgumentList 'The current implementation does not support registering against application commands.';
 		}
 
 		$AliasName = $Command.Name;
