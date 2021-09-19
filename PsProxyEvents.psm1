@@ -149,8 +149,30 @@ Determines whether the ScriptBlock will be saved to be executed after the suppli
 .EXAMPLE
 $Command = Get-Command -Module 'Microsoft.PowerShell.Management' -Name Get-ChildItem;
 Register-ProxyEvent -Command $Command -ScriptBlock { Write-Host $Path } -Before -After;
-Register-ProxyEvent -Command $Command -ScriptBlock { Write-Host $Path } -Before;
 Register-ProxyEvent -Command $Command -ScriptBlock { Write-Host $Path } -Before -After;
+Register-ProxyEvent -Command $Command -ScriptBlock { Write-Host $Path } -Before;
+Get-ChildItem -Path 'C:\';
+C:\
+C:\
+C:\
+
+        Directory: C:\
+
+
+Mode                LastWriteTime         Length Name
+----                -------------         ------ ----
+d-r--         9/13/2021   9:53 PM                Program Files
+d-r--          8/7/2021   9:49 PM                Program Files (x86)
+d----         8/20/2020  11:53 AM                Temp
+d-r--         8/20/2020   9:20 AM                Users
+d----         9/17/2021   1:10 AM                Windows
+C:\
+C:\
+
+.EXAMPLE
+Register-ProxyEvent -CommandName 'Get-ChildItem' -ScriptBlock { Write-Host $Path } -Before -After;
+Register-ProxyEvent -CommandName 'Get-ChildItem' -ScriptBlock { Write-Host $Path } -Before -After;
+Register-ProxyEvent -CommandName 'Get-ChildItem' -ScriptBlock { Write-Host $Path } -Before;
 Get-ChildItem -Path 'C:\';
 C:\
 C:\
@@ -174,6 +196,9 @@ None
 
 .OUTPUTS
 None
+
+.NOTES
+To avoid infinite loops, make sure that any commands running inside the ScriptBlocks being saved are not ones that are being attached to.
 
 #>
 
@@ -242,6 +267,7 @@ function Register-ProxyEvent {
 	end {
 		& $script:SafeCommands['Save-ScriptBlock'] -Command $Command -ScriptBlock $ScriptBlock -Before:$Before -After:$After;
 
+		# Set up the dynamic module with deep copied script blocks
 		$ModuleBlock = {
 			param (
 				[String] $FunctionName,
@@ -250,13 +276,21 @@ function Register-ProxyEvent {
 				[ScriptBlock[]] $AfterEventBlocks = @(),
 				[ScriptBlock] $ProxyScriptBlock
 			)
+			# Copy the saved script blocks
 			$script:BeforeEventBlocks = $BeforeEventBlocks;
 			$script:AfterEventBlocks = $AfterEventBlocks;
+
+			# Load the duplicate script block into the dynamic module's scope
 			. $ProxyScriptBlock;
+
+			# Create the alias to hide the original function
 			Microsoft.PowerShell.Utility\Set-Alias -Name $AliasName -Value $FunctionName;
+
+			# Make sure that the proxy command and the alias are visible externally when the module is imported
 			Microsoft.PowerShell.Core\Export-ModuleMember -Function $FunctionName -Alias $AliasName;
 		}
 
+		# Create a dynamic module
 		$Module = Microsoft.PowerShell.Core\New-Module -Name $DynamicModuleName -ScriptBlock $ModuleBlock -ArgumentList @(
 			$FunctionName,
 			$AliasName,
