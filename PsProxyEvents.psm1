@@ -110,6 +110,60 @@ function $(& $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Comman
 	};
 };
 
+<#
+
+.SYNOPSIS
+Register a ScriptBlock to be executed alongside the supplied command.
+
+.DESCRIPTION
+This function saves a ScriptBlock to be executed, before or after, whenever the supplied command is executed.
+
+.PARAMETER Command
+The command that the events will attach to.
+
+.PARAMETER CommandName
+The name of the command that the events will attach to.  The Register-ProxyEvent command will throw an exception if the command cannot be found, or if there is more than one command with the name.
+
+.PARAMETER ScriptBlock
+The ScriptBlock that will be saved to be executed along with the supplied command.  The parameters passed to the ScriptBlock will be the same as the command that the ScriptBlock is attached to.
+
+.PARAMETER Before
+Determines whether the ScriptBlock will be saved to be executed before the supplied command.  Either the Before or After switch is required.
+
+.PARAMETER After
+Determines whether the ScriptBlock will be saved to be executed after the supplied command.  Either the Before or After switch is required.
+
+.EXAMPLE
+$Command = Get-Command -Module 'Microsoft.PowerShell.Management' -Name Get-ChildItem;
+Register-ProxyEvent -Command $Command -ScriptBlock { Write-Host $Path } -Before -After;
+Register-ProxyEvent -Command $Command -ScriptBlock { Write-Host $Path } -Before;
+Register-ProxyEvent -Command $Command -ScriptBlock { Write-Host $Path } -Before -After;
+Get-ChildItem -Path 'C:\';
+C:\
+C:\
+C:\
+
+        Directory: C:\
+
+
+Mode                LastWriteTime         Length Name
+----                -------------         ------ ----
+d-r--         9/13/2021   9:53 PM                Program Files
+d-r--          8/7/2021   9:49 PM                Program Files (x86)
+d----         8/20/2020  11:53 AM                Temp
+d-r--         8/20/2020   9:20 AM                Users
+d----         9/17/2021   1:10 AM                Windows
+C:\
+C:\
+
+.INPUTS
+None
+
+.OUTPUTS
+None
+
+#>
+
 function Register-ProxyEvent {
 	[CmdletBinding()]
 	param (
