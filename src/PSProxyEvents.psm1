@@ -24,7 +24,7 @@ $script:SafeCommands = @{
 		)
 
 		end {
-			return Microsoft.PowerShell.Core\Get-Command -Name $CommandName -All | Where-Object { $_.ModuleName -notlike $script:ProxyModuleNamePrefix + '*' };
+			return Microsoft.PowerShell.Core\Get-Command -Name $CommandName -All -ErrorAction 'SilentlyContinue' | Where-Object { $_.ModuleName -notlike $script:ProxyModuleNamePrefix + '*' };
 		}
 	};
 	'Get-ProxyEventFunctionName' = {
@@ -255,6 +255,7 @@ function Register-ProxyEvent {
 			$Command = & $script:SafeCommands['Get-ExternalCommand'] -CommandName $CommandName;
 		}
 
+		# Does not support native applications right now
 		if ($Command.CommandType -eq [System.Management.Automation.CommandTypes]::Application) {
 			throw New-Object -TypeName System.NotSupportedException `
 				-ArgumentList 'The current implementation does not support registering against application commands.';
