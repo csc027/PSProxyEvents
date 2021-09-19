@@ -255,6 +255,11 @@ function Register-ProxyEvent {
 			$Command = & $script:SafeCommands['Get-ExternalCommand'] -CommandName $CommandName;
 		}
 
+		if ($Command.CommandType -eq [System.Management.Automation.CommandTypes]::Application) {
+			throw New-Object -TypeName System.NotSupportedException `
+				-ArgumentList 'The current implementation does not support registering against application commands.';
+		}
+
 		$AliasName = $Command.Name;
 		$FunctionName = & $script:SafeCommands['Get-ProxyEventFunctionName'] -Command $Command;
 		$CommandName = & $script:SafeCommands['Get-CommandName'] -Command $Command;
