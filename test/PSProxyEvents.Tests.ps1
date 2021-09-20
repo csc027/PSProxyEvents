@@ -15,68 +15,68 @@ BeforeAll {
 }
 
 Describe 'Proxy Events Tests' {
-    Context 'ScriptBlock attaches and executes' {
-        BeforeEach {
+	Context 'ScriptBlock attaches and executes' {
+		BeforeEach {
 			Import-Module -Name $script:ModulePath -Force;
 			Get-Module -Name '__DynamicModule_Proxy_*' | Remove-Module;
-        }
+		}
 
-        It 'Does not execute if not attached' {
+		It 'Does not execute if not attached' {
 			Mock -CommandName 'Invoke-Before' -MockWith { } -Verifiable;
 			Invoke-Function;
 			Should -Invoke -CommandName 'Invoke-Before' -Times 0;
-        }
+		}
 
-        It 'Attaches and executes before the chosen command' {
+		It 'Attaches and executes before the chosen command' {
 			Mock -CommandName 'Invoke-Before' -MockWith { } -Verifiable;
 			Register-ProxyEvent -CommandName 'Invoke-Function' -ScriptBlock { Invoke-Before; } -Before;
 			Invoke-Function;
 			Should -Invoke -CommandName 'Invoke-Before' -Times 1;
-        }
+		}
 
-        It 'Executes multiple times before the chosen command if registered multiple times' {
+		It 'Executes multiple times before the chosen command if registered multiple times' {
 			Mock -CommandName 'Invoke-Before' -MockWith { } -Verifiable;
 			Register-ProxyEvent -CommandName 'Invoke-Function' -ScriptBlock { Invoke-Before; } -Before;
 			Register-ProxyEvent -CommandName 'Invoke-Function' -ScriptBlock { Invoke-Before; } -Before;
 			Invoke-Function;
 			Should -Invoke -CommandName 'Invoke-Before' -Times 2;
-        }
+		}
 
-        It 'Attaches and executes after the chosen command' {
+		It 'Attaches and executes after the chosen command' {
 			Mock -CommandName 'Invoke-After' -MockWith { } -Verifiable;
 			Register-ProxyEvent -CommandName 'Invoke-Function' -ScriptBlock { Invoke-After; } -After;
 			Invoke-Function;
 			Should -Invoke -CommandName 'Invoke-After' -Times 1;
-        }
+		}
 
-        It 'Executes multiple times after the chosen command if registered multiple times' {
+		It 'Executes multiple times after the chosen command if registered multiple times' {
 			Mock -CommandName 'Invoke-After' -MockWith { } -Verifiable;
 			Register-ProxyEvent -CommandName 'Invoke-Function' -ScriptBlock { Invoke-After; } -After;
 			Register-ProxyEvent -CommandName 'Invoke-Function' -ScriptBlock { Invoke-After; } -After;
 			Invoke-Function;
 			Should -Invoke -CommandName 'Invoke-After' -Times 2;
-        }
+		}
 
-        It 'Attaches and executes before and after the chosen command' {
+		It 'Attaches and executes before and after the chosen command' {
 			Mock -CommandName 'Invoke-BeforeAfter' -MockWith { } -Verifiable;
 			Register-ProxyEvent -CommandName 'Invoke-Function' -ScriptBlock { Invoke-BeforeAfter; } -Before -After;
 			Invoke-Function;
 			Should -Invoke -CommandName 'Invoke-BeforeAfter' -Times 2;
-        }
+		}
 
-        It 'Executes multiple times before and after the chosen command if registered multiple times' {
+		It 'Executes multiple times before and after the chosen command if registered multiple times' {
 			Mock -CommandName 'Invoke-BeforeAfter' -MockWith { } -Verifiable;
 			Register-ProxyEvent -CommandName 'Invoke-Function' -ScriptBlock { Invoke-BeforeAfter; } -Before -After;
 			Register-ProxyEvent -CommandName 'Invoke-Function' -ScriptBlock { Invoke-BeforeAfter; } -Before -After;
 			Invoke-Function;
 			Should -Invoke -CommandName 'Invoke-BeforeAfter' -Times 2;
-        }
-    }
+		}
+	}
 
 	Context 'Does not register for bad input or bad results' {
-        BeforeEach {
+		BeforeEach {
 			Import-Module -Name $script:ModulePath -Force;
-        }
+		}
 
 		It 'Does not register if the command is a native application' {
 			{ Register-ProxyEvent -CommandName 'ssh' -ScriptBlock { Invoke-After; } -After } | Should -Throw;
